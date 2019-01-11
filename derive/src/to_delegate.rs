@@ -230,6 +230,9 @@ impl RpcMethod {
 				self.params_with_trailing(trailing_args_num, param_types, tuple_fields)
 			} else if param_types.is_empty() {
 				quote! { let params = params.expect_no_params(); }
+			} else if param_types.len() == 1 {
+				let param_type = &param_types[0];
+				quote! { let params = params.parse_single::<#param_type>(); }
 			} else {
 				quote! { let params = params.parse::<(#(#param_types), *)>(); }
 			}
@@ -296,11 +299,29 @@ impl RpcMethod {
 				let missed_args_num = total_args_num - passed_args_num;
 				let missed_params_values = ::std::iter::repeat(quote! { None }).take(missed_args_num).collect::<Vec<_>>();
 
-				quote! {
-					#passed_args_num => params.parse::<(#(#passed_param_types), *)>()
-						.map( |(#(#passed_tuple_fields), *)|
-							(#(#passed_tuple_fields, )* #(#missed_params_values), *))
-						.map_err(Into::into)
+				if passed_args_num == 0 {
+					quote! {
+						#passed_args_num => params.expect_no_params()
+							.map( |_|
+								(#(#missed_params_values), *))
+							.map_err(Into::into)
+					}
+				} else if passed_args_num == 1 {
+					let passed_param_type = &passed_param_types[0];
+					let passed_tuple_field = &passed_tuple_fields[0];
+					quote! {
+						#passed_args_num => params.parse_single::<#passed_param_type>()
+							.map( |#passed_tuple_field|
+								(#passed_tuple_field, #(#missed_params_values), *))
+							.map_err(Into::into)
+					}
+				} else {
+					quote! {
+						#passed_args_num => params.parse::<(#(#passed_param_types), *)>()
+							.map( |(#(#passed_tuple_fields), *)|
+								(#(#passed_tuple_fields, )* #(#missed_params_values), *))
+							.map_err(Into::into)
+					}
 				}
 			}).collect::<Vec<_>>();
 

@@ -29,9 +29,9 @@ pub trait Rpc {
 	#[rpc(name = "add")]
 	fn add(&self, u64, u64) -> Result<u64>;
 
-	/// Adds up to four numbers and returns a result
+	/// Adds up to three numbers and returns a result
 	#[rpc(name = "add_multi")]
-	fn add_multi(&self, u64, Option<u64>, Option<u64>, Option<u64>) -> Result<u64>;
+	fn add_multi(&self, Option<u64>, Option<u64>, Option<u64>) -> Result<u64>;
 }
 
 #[derive(Default)]
@@ -50,8 +50,8 @@ impl Rpc for RpcImpl {
 		Ok(a + b)
 	}
 
-	fn add_multi(&self, a: u64, b: Option<u64>, c: Option<u64>, d: Option<u64>) -> Result<u64> {
-		Ok(a + b.unwrap_or_default() + c.unwrap_or_default() + d.unwrap_or_default())
+	fn add_multi(&self, a: Option<u64>, b: Option<u64>, c: Option<u64>) -> Result<u64> {
+		Ok(a.unwrap_or_default() + b.unwrap_or_default() + c.unwrap_or_default())
 	}
 }
 
@@ -134,10 +134,10 @@ fn should_accept_multiple_trailing_params() {
 	io.extend_with(rpc.to_delegate());
 
 	// when
-	let req1 = r#"{"jsonrpc":"2.0","id":1,"method":"add_multi","params":[1]}"#;
-	let req2 = r#"{"jsonrpc":"2.0","id":1,"method":"add_multi","params":[1, 2]}"#;
-	let req3 = r#"{"jsonrpc":"2.0","id":1,"method":"add_multi","params":[1, 2, 3]}"#;
-	let req4 = r#"{"jsonrpc":"2.0","id":1,"method":"add_multi","params":[1, 2, 3, 4]}"#;
+	let req1 = r#"{"jsonrpc":"2.0","id":1,"method":"add_multi","params":[]}"#;
+	let req2 = r#"{"jsonrpc":"2.0","id":1,"method":"add_multi","params":[1]}"#;
+	let req3 = r#"{"jsonrpc":"2.0","id":1,"method":"add_multi","params":[1, 2]}"#;
+	let req4 = r#"{"jsonrpc":"2.0","id":1,"method":"add_multi","params":[1, 2, 3]}"#;
 
 	let res1 = io.handle_request_sync(req1);
 	let res2 = io.handle_request_sync(req2);
@@ -148,28 +148,28 @@ fn should_accept_multiple_trailing_params() {
 	let result1: Response = serde_json::from_str(&res1.unwrap()).unwrap();
 	assert_eq!(result1, serde_json::from_str(r#"{
 		"jsonrpc": "2.0",
-		"result": 1,
+		"result": 0,
 		"id": 1
 	}"#).unwrap());
 
 	let result2: Response = serde_json::from_str(&res2.unwrap()).unwrap();
 	assert_eq!(result2, serde_json::from_str(r#"{
 		"jsonrpc": "2.0",
-		"result": 3,
+		"result": 1,
 		"id": 1
 	}"#).unwrap());
 
 	let result3: Response = serde_json::from_str(&res3.unwrap()).unwrap();
 	assert_eq!(result3, serde_json::from_str(r#"{
 		"jsonrpc": "2.0",
-		"result": 6,
+		"result": 3,
 		"id": 1
 	}"#).unwrap());
 
 	let result4: Response = serde_json::from_str(&res4.unwrap()).unwrap();
 	assert_eq!(result4, serde_json::from_str(r#"{
 		"jsonrpc": "2.0",
-		"result": 10,
+		"result": 6,
 		"id": 1
 	}"#).unwrap());
 }

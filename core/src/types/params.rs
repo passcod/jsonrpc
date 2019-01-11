@@ -19,6 +19,20 @@ pub enum Params {
 }
 
 impl Params {
+	/// Parse param into expected types.
+	pub fn parse_single<D>(self) -> Result<D, Error> where D: DeserializeOwned {
+		let make_err = |p| Err(Error::invalid_params_with_details("Single parameters has been expected", p));
+
+		let value = match self {
+			Params::Array(mut v) => if v.len() == 1 { v.remove(0) } else { return make_err(Params::Array(v)) },
+			p => return make_err(p),
+		};
+
+		from_value(value).map_err(|e| {
+			Error::invalid_params(format!("Invalid params: {}.", e))
+		})
+	}
+
 	/// Parse incoming `Params` into expected types.
 	pub fn parse<D>(self) -> Result<D, Error> where D: DeserializeOwned {
 		let value = match self {
@@ -83,5 +97,30 @@ mod tests {
 		assert_eq!(err2.code, ErrorCode::InvalidParams);
 		assert_eq!(err2.message, "Invalid params: invalid length 2, expected a tuple of size 3.");
 		assert_eq!(err2.data, None);
+	}
+
+	#[test]
+	fn single_param_parsed_as_tuple() {
+		let params: (u64) = Params::Array(vec![Value::from(1)]).parse().unwrap();
+		assert_eq!(params, (1));
+	}
+
+	#[test]
+	fn two_params_parsed_as_tuple() {
+		let params: (u64, u64) = Params::Array(vec![Value::from(1), Value::from(2)]).parse().unwrap();
+		assert_eq!(params, (1, 2));
+	}
+
+	#[test]
+	fn optional_params_parsed_as_tuple() {
+		let params: (u64, Option<u64>, Option<u64>) = Params::Array(vec![
+			Value::from(1), Value::from(2), Value::from(3)
+		]).parse().unwrap();
+		assert_eq!(params, (1, Some(2), Some(3)));
+
+		let params: (u64, Option<u64>, Option<u64>) = Params::Array(vec![
+			Value::from(1), Value::Null, Value::Null
+		]).parse().unwrap();
+		assert_eq!(params, (1, None, None));
 	}
 }
